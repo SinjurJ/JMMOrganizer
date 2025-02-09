@@ -191,8 +191,8 @@ export void generateAlbumsAndSingles(
         std::string query_mime_type = "application/x-vnd.Be-query";
         query_node.WriteAttr("BEOS:TYPE", B_MIME_STRING_TYPE, 0,
                              query_mime_type.c_str(), query_mime_type.length());
-        std::string query_string("BEOS:TYPE == audio/* && Audio:Album == " +
-                                 std::get<0>(i));
+        std::string query_string("BEOS:TYPE == audio/* && Audio:Album == \"" +
+                                 std::get<0>(i) + "\"");
         query_node.WriteAttr("_trk/qrystr", B_STRING_TYPE, 0,
                              query_string.c_str(), query_string.length());
 
