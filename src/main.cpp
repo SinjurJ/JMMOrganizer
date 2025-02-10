@@ -116,12 +116,23 @@ class JMMOrganizerWindow : public BWindow {
                     // TODO show window clarifying issue
                     return;
                 }
-
+                uint8 flags = 0;
+                if (albums_check_box->Value()) {
+                    flags += ALBUMS;
+                }
+                if (artists_check_box->Value()) {
+                    flags += ARTISTS;
+                }
+                if (genres_check_box->Value()) {
+                    flags += GENRES;
+                }
+                if (tracks_check_box->Value()) {
+                    flags += TRACKS;
+                }
                 process_tracks_thread = spawn_thread(
                     processTracks, "process_tracks", B_LOW_PRIORITY,
                     new ProcessTracksData(&music_query, source_path,
-                                          destination_path, storeAlbum,
-                                          generateAlbumsAndSingles, this));
+                                          destination_path, flags, this));
                 if (process_tracks_thread > 0) {
                     resume_thread(process_tracks_thread);
                 }

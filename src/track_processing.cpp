@@ -19,6 +19,7 @@ module;
 #include <Path.h>
 #include <Query.h>
 #include <String.h>
+#include <SupportDefs.h>
 #include <SymLink.h>
 #include <TypeConstants.h>
 #include <fs_attr.h>
@@ -58,63 +59,7 @@ void copyAttributes(BNode source, BNode destination,
     }
 }
 
-export struct ProcessTracksData {
-    BQuery *music_query;
-    BString source_path;
-    BString destination_path;
-    BString (*store)(
-        BEntry entry,
-        std::vector<std::tuple<std::string, int, std::string>> *storage);
-    void (*generate)(
-        const std::string &destination_path,
-        const std::vector<std::tuple<std::string, int, std::string>> &storage);
-    BLooper *caller;
-};
-
-export int processTracks(void *data) {
-    ProcessTracksData *args = static_cast<ProcessTracksData *>(data);
-
-    BMessage beginning_line_message(LINE_FROM_PROCESS);
-    beginning_line_message.AddString("line",
-                                     BString("Beginning processing!\n\n"));
-    args->caller->PostMessage(&beginning_line_message);
-
-    std::vector<std::tuple<std::string, int, std::string>> storage;
-    BEntry entry;
-    while (args->music_query->GetNextEntry(&entry) == B_OK) {
-        BPath entry_path;
-        entry.GetPath(&entry_path);
-        std::string track_path(entry_path.Path());
-        if (track_path.find(args->source_path) != 0) {
-            continue;
-        }
-
-        std::cout << track_path << std::endl;
-
-        BString new_line;
-        new_line = args->store(entry, &storage);
-        if (new_line) {
-            BMessage new_line_message(LINE_FROM_PROCESS);
-            new_line_message.AddString("line", new_line);
-            args->caller->PostMessage(&new_line_message);
-        }
-    }
-    args->generate(std::string(args->destination_path), storage);
-
-    BMessage finished_line_message(LINE_FROM_PROCESS);
-    finished_line_message.AddString("line",
-                                    BString("Finished processing!\n\n"));
-    args->caller->PostMessage(&finished_line_message);
-
-    BMessage finished_message(FINISHED_PROCESS);
-    args->caller->PostMessage(&finished_message);
-
-    delete args;
-
-    return 0;
-}
-
-export BString storeAlbum(
+BString storeAlbum(
     BEntry entry,
     std::vector<std::tuple<std::string, int, std::string>> *album_storage) {
     BNode track_node = BNode(&entry);
@@ -139,7 +84,7 @@ export BString storeAlbum(
     return nullptr;
 }
 
-export void generateAlbumsAndSingles(
+void generateAlbumsAndSingles(
     const std::string &destination_path,
     const std::vector<std::tuple<std::string, int, std::string>>
         &album_storage) {
@@ -202,4 +147,84 @@ export void generateAlbumsAndSingles(
         copyAttributes(first_track_node, query_node,
                        {"Audio:Artist", "Media:Genre", "Media:Year"}, {""});
     }
+}
+
+export enum ProcessTracksFlags {
+    ALBUMS = 0b00000001,
+    ARTISTS = 0b00000010,
+    GENRES = 0b00000100,
+    TRACKS = 0b00001000,
+};
+
+export struct ProcessTracksData {
+    BQuery *music_query;
+    BString source_path;
+    BString destination_path;
+    uint8 flags;
+    BLooper *caller;
+};
+
+export int processTracks(void *data) {
+    ProcessTracksData *args = static_cast<ProcessTracksData *>(data);
+
+    BMessage beginning_line_message(LINE_FROM_PROCESS);
+    beginning_line_message.AddString("line",
+                                     BString("Beginning processing!\n\n"));
+    args->caller->PostMessage(&beginning_line_message);
+
+    std::vector<std::tuple<std::string, int, std::string>> storage;
+    BEntry entry;
+    while (args->music_query->GetNextEntry(&entry) == B_OK) {
+        BPath entry_path;
+        entry.GetPath(&entry_path);
+        std::string track_path(entry_path.Path());
+        if (track_path.find(args->source_path) != 0) {
+            continue;
+        }
+
+        std::cout << track_path << std::endl;
+
+        BString new_line;
+        if (args->flags & ALBUMS) {
+            new_line.Append(storeAlbum(entry, &storage));
+        }
+        if (args->flags & ARTISTS) {
+            // TODO storeArtist
+        }
+        if (args->flags & GENRES) {
+            // TODO storeGenre
+        }
+        if (args->flags & TRACKS) {
+            // TODO storeTrack
+        }
+        if (!new_line.IsEmpty()) {
+            BMessage new_line_message(LINE_FROM_PROCESS);
+            new_line_message.AddString("line", new_line);
+            args->caller->PostMessage(&new_line_message);
+        }
+    }
+    if (args->flags & ALBUMS) {
+        generateAlbumsAndSingles(std::string(args->destination_path), storage);
+    }
+    if (args->flags & ARTISTS) {
+        // TODO generateArtists
+    }
+    if (args->flags & GENRES) {
+        // TODO generateGenres
+    }
+    if (args->flags & TRACKS) {
+        // TODO generateTracks
+    }
+
+    BMessage finished_line_message(LINE_FROM_PROCESS);
+    finished_line_message.AddString("line",
+                                    BString("Finished processing!\n\n"));
+    args->caller->PostMessage(&finished_line_message);
+
+    BMessage finished_message(FINISHED_PROCESS);
+    args->caller->PostMessage(&finished_message);
+
+    delete args;
+
+    return 0;
 }
