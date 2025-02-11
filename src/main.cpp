@@ -58,9 +58,7 @@ class JMMOrganizerWindow : public BWindow {
         generate_button->SetEnabled(false);
 
         progress_view->MakeEditable(false);
-        progress_view->MakeSelectable(false);
-
-        progress_view->AdoptSystemColors();
+        progress_view->MakeSelectable(true);
 
         BScrollView *progress_scroll_view =
             new BScrollView("Progress Scroll", progress_view, 0, false, true);
