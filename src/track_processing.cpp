@@ -19,6 +19,7 @@ module;
 #include <Path.h>
 #include <Query.h>
 #include <String.h>
+#include <StringList.h>
 #include <SupportDefs.h>
 #include <SymLink.h>
 #include <TypeConstants.h>
@@ -59,29 +60,41 @@ void copyAttributes(BNode source, BNode destination,
     }
 }
 
-BString storeAlbum(
-    BEntry entry,
-    std::vector<std::tuple<std::string, int, std::string>> *album_storage) {
+BString storeFromAttribute(
+    BString attribute, BEntry entry,
+    std::vector<std::tuple<std::string, int, std::string>> *storage) {
     BNode track_node = BNode(&entry);
-    BString album;
-    track_node.ReadAttrString("Audio:Album", &album);
+    BString attribute_data;
+    track_node.ReadAttrString(attribute, &attribute_data);
 
-    bool album_found = false;
-    for (auto &i : *album_storage) {
-        if (std::get<0>(i) == album.String()) {
+    bool data_found = false;
+    for (auto &i : *storage) {
+        if (std::get<0>(i) == attribute_data.String()) {
             std::get<1>(i)++;
-            album_found = true;
+            data_found = true;
             break;
         }
     }
-    if (!album_found) {
+    if (!data_found) {
         BPath entry_path;
         entry.GetPath(&entry_path);
-        album_storage->push_back(
-            std::make_tuple(album.String(), 1, entry_path.Path()));
-        return BString("Found album \"").Append(album.String()).Append("\"\n");
+        storage->push_back(
+            std::make_tuple(attribute_data.String(), 1, entry_path.Path()));
+        BStringList split_list(3); // TODO check for performance
+        attribute.Split(":", false, split_list);
+        BString attribute_name;
+        if (split_list.CountStrings() == 2) {
+            attribute_name = split_list.StringAt(1).ToLower();
+        } else {
+            attribute_name = attribute.ToLower(); // TODO ensure ToLower is good
+        }
+        return BString("Found ")
+            .Append(attribute_name)
+            .Append(" \"")
+            .Append(attribute_data)
+            .Append("\"\n");
     }
-    return nullptr;
+    return BString();
 }
 
 void generateAlbumsAndSingles(
@@ -142,6 +155,7 @@ void generateAlbumsAndSingles(
                              query_string.c_str(), query_string.length());
 
         // TODO possibly get album_artist from vorbis tags
+        
         // get artist, genre, and year from first track in album
         BNode first_track_node(std::get<2>(i).c_str());
         copyAttributes(first_track_node, query_node,
@@ -172,7 +186,8 @@ export int processTracks(void *data) {
                                      BString("Beginning processing!\n\n"));
     args->caller->PostMessage(&beginning_line_message);
 
-    std::vector<std::tuple<std::string, int, std::string>> storage;
+    std::vector<std::tuple<std::string, int, std::string>> album_storage;
+    std::vector<std::tuple<std::string, int, std::string>> artist_storage;
     BEntry entry;
     while (args->music_query->GetNextEntry(&entry) == B_OK) {
         BPath entry_path;
@@ -186,10 +201,12 @@ export int processTracks(void *data) {
 
         BString new_line;
         if (args->flags & ALBUMS) {
-            new_line.Append(storeAlbum(entry, &storage));
+            new_line.Append(
+                storeFromAttribute("Audio:Album", entry, &album_storage));
         }
         if (args->flags & ARTISTS) {
-            // TODO storeArtist
+            new_line.Append(
+                storeFromAttribute("Audio:Artist", entry, &artist_storage));
         }
         if (args->flags & GENRES) {
             // TODO storeGenre
@@ -204,7 +221,8 @@ export int processTracks(void *data) {
         }
     }
     if (args->flags & ALBUMS) {
-        generateAlbumsAndSingles(std::string(args->destination_path), storage);
+        generateAlbumsAndSingles(std::string(args->destination_path),
+                                 album_storage);
     }
     if (args->flags & ARTISTS) {
         // TODO generateArtists
