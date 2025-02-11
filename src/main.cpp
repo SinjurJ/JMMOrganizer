@@ -14,6 +14,7 @@
 #include <MenuItem.h>
 #include <Message.h>
 #include <OS.h>
+#include <Point.h>
 #include <Query.h>
 #include <Rect.h>
 #include <ScrollView.h>
@@ -223,6 +224,10 @@ class JMMOrganizerApplication : public BApplication {
             goto show_window;
         }
     show_window:; // TODO don't use goto
+        frame.SetRightTop(frame.LeftTop() + BPoint(550, 0));
+        if (frame.RightBottom().y - frame.RightTop().y > 550) {
+            frame.SetRightBottom(frame.RightTop() + BPoint(0, 50));
+        }
         window = new JMMOrganizerWindow(frame, APPLICATION_NAME);
         window->Show();
     }
