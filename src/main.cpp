@@ -63,9 +63,8 @@ class JMMOrganizerWindow : public BWindow {
         BScrollView *progress_scroll_view =
             new BScrollView("Progress Scroll", progress_view, 0, false, true);
 
-        // progress_view->SetResizingMode(B_FOLLOW_ALL_SIDES);
-
         BLayoutBuilder::Grid<>(this)
+            .SetSpacing(0, 0)
             .Add(key_menu_bar, 0, 0, 2, 1)
             .Add(albums_check_box, 0, 1)
             .Add(artists_check_box, 0, 2)
