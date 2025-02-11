@@ -3,6 +3,10 @@
 #include <Application.h>
 #include <Button.h>
 #include <CheckBox.h>
+#include <Directory.h>
+#include <Entry.h>
+#include <Errors.h>
+#include <File.h>
 #include <InterfaceDefs.h>
 #include <LayoutBuilder.h>
 #include <Menu.h>
@@ -15,6 +19,7 @@
 #include <ScrollView.h>
 #include <SeparatorItem.h>
 #include <StackOrHeapArray.h>
+#include <StorageDefs.h>
 #include <String.h>
 #include <TextView.h>
 #include <Volume.h>
@@ -27,8 +32,8 @@ const BString APPLICATION_NAME = "JMMOrganizer"; // TODO determine if efficient
 
 class JMMOrganizerWindow : public BWindow {
   public:
-    JMMOrganizerWindow(const char *title)
-        : BWindow(BRect(50, 50, 600, 100), title, B_TITLED_WINDOW,
+    JMMOrganizerWindow(BRect frame, const char *title)
+        : BWindow(frame, title, B_TITLED_WINDOW,
                   B_AUTO_UPDATE_SIZE_LIMITS | B_NOT_RESIZABLE | B_NOT_ZOOMABLE |
                       B_QUIT_ON_WINDOW_CLOSE) {
 
@@ -153,6 +158,25 @@ class JMMOrganizerWindow : public BWindow {
         // TODO ensure there aren't major memory leaks
         // TODO consider something better than killing the thread
         kill_thread(process_tracks_thread);
+
+        // TODO don't fail silently
+        BRect current_frame = this->Frame();
+        BMessage frame_message;
+        if (frame_message.AddRect("frame", current_frame) != B_OK) {
+            return true;
+        }
+        BDirectory settings_directory(
+            "/boot/home/config/settings/"); // TODO get from env variables
+        BFile config_file; // TODO consider opening directly with B_CREATE_FILE
+        if (settings_directory.CreateFile("./JMMOrganizer", &config_file,
+                                          false) != B_OK) {
+            return true;
+        }
+        if (config_file.SetSize(frame_message.FlattenedSize()) != B_OK) {
+            return true;
+        }
+        frame_message.Flatten(&config_file);
+
         return true;
     }
 
@@ -182,6 +206,24 @@ class JMMOrganizerWindow : public BWindow {
 class JMMOrganizerApplication : public BApplication {
   public:
     JMMOrganizerApplication(const char *signature) : BApplication(signature) {
+        // TODO ensure window is deleted properly on quit
+        JMMOrganizerWindow *window;
+
+        BFile config_file;
+        BMessage frame_message;
+        BRect frame(50, 50, 600, 100);
+        if (config_file.SetTo("/boot/home/config/settings/JMMOrganizer",
+                              B_READ_ONLY) != B_OK) {
+            goto show_window;
+        }
+        if (frame_message.Unflatten(&config_file) != B_OK) {
+            goto show_window;
+        }
+        if (frame_message.FindRect("frame", &frame) != B_OK) {
+            goto show_window;
+        }
+    show_window:; // TODO don't use goto
+        window = new JMMOrganizerWindow(frame, APPLICATION_NAME);
         window->Show();
     }
 
@@ -195,9 +237,9 @@ class JMMOrganizerApplication : public BApplication {
         authors[0] = "Jareth McGhee";
         authors[1] = nullptr;
 
-        about_window->AddDescription(
-            "JMMOrganizer is an easy way to take a disorganized music library "
-            "and organize it.");
+        about_window->AddDescription("JMMOrganizer is an easy way to take "
+                                     "a disorganized music library "
+                                     "and organize it.");
         about_window->AddAuthors(authors);
         about_window->AddCopyright(2025, "Jareth McGhee");
         about_window->AddExtraInfo(
@@ -213,9 +255,6 @@ class JMMOrganizerApplication : public BApplication {
 
         about_window->Show();
     }
-
-  private:
-    JMMOrganizerWindow *window = new JMMOrganizerWindow(APPLICATION_NAME);
 };
 
 int main() {

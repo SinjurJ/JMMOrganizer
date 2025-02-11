@@ -14,6 +14,7 @@ module;
 
 #include <Directory.h>
 #include <Entry.h>
+#include <Errors.h>
 #include <Looper.h>
 #include <Node.h>
 #include <Path.h>
@@ -155,7 +156,7 @@ void generateAlbumsAndSingles(
                              query_string.c_str(), query_string.length());
 
         // TODO possibly get album_artist from vorbis tags
-        
+
         // get artist, genre, and year from first track in album
         BNode first_track_node(std::get<2>(i).c_str());
         copyAttributes(first_track_node, query_node,
