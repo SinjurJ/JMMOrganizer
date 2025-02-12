@@ -57,7 +57,6 @@ class JMMOrganizerWindow : public BWindow {
         first_key_menu->AddItem(new BSeparatorItem());
         first_key_menu->AddItem(quit_menu_item);
 
-        artists_check_box->SetEnabled(false);
         genres_check_box->SetEnabled(false);
         tracks_check_box->SetEnabled(false);
 
@@ -86,6 +85,9 @@ class JMMOrganizerWindow : public BWindow {
         case ACTIVATE_ARTISTS:
         case ACTIVATE_GENRES:
         case ACTIVATE_TRACKS:
+            if (process_tracks_thread > 0) {
+                break;
+            }
             generate_button->SetEnabled(
                 albums_check_box->Value() || artists_check_box->Value() ||
                 genres_check_box->Value() || tracks_check_box->Value());
@@ -98,15 +100,17 @@ class JMMOrganizerWindow : public BWindow {
                 genres_check_box->Value() || tracks_check_box->Value());
             break;
         case GENERATE:
-            generate_button->SetEnabled(false);
             [&] { // TODO don't use lambda
-                if (!albums_check_box->Value()) {
+                if (!(albums_check_box->Value() || artists_check_box->Value() ||
+                      genres_check_box->Value() || tracks_check_box->Value())) {
                     return;
                 }
 
                 if (process_tracks_thread > 0) {
                     return;
                 }
+
+                generate_button->SetEnabled(false);
 
                 // TODO set predicate and volume in better location
                 // TODO should the query stuff be in JMMOrganizerApplication?
@@ -201,7 +205,7 @@ class JMMOrganizerWindow : public BWindow {
     BString source_path = "/boot/home/music/";
     BString destination_path = "/boot/home/music/";
 
-    int process_tracks_thread = 0;
+    thread_id process_tracks_thread = 0;
 };
 
 class JMMOrganizerApplication : public BApplication {
