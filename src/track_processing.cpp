@@ -1,7 +1,6 @@
 module;
 
 // TODO avoid excessive use of standard library
-#include <array>
 #include <cstddef>
 #include <cstring>
 #include <filesystem>
@@ -19,6 +18,7 @@ module;
 #include <ObjectList.h>
 #include <Path.h>
 #include <Query.h>
+#include <StackOrHeapArray.h>
 #include <String.h>
 #include <StringList.h>
 #include <SupportDefs.h>
@@ -33,18 +33,20 @@ import utilities;
 void copyAttributes(BNode *source, BNode *destination,
                     const BObjectList<BString, true> &include,
                     const BObjectList<BString, true> &exclude) {
-    std::array<char, B_ATTR_NAME_LENGTH> attr_name = {0};
+    // TODO ensure B_ATTR_NAME_LENGTH leaves room for a terminating null
+    BStackOrHeapArray<char, B_ATTR_NAME_LENGTH> attr_name = {0};
     attr_info info = {0, 0};
-    std::array<std::byte, B_ATTR_NAME_LENGTH> buffer;
+    BStackOrHeapArray<uchar, B_ATTR_NAME_LENGTH> buffer = {0};
 
-    while (source->GetNextAttrName(attr_name.data()) == B_OK) {
+    while (source->GetNextAttrName(attr_name) == B_OK) {
         if (include.EachElement(
                 [](const BString *i, void *params) -> const BString * {
-                    const std::array<char, B_ATTR_NAME_LENGTH> &attr_name =
-                        *static_cast<std::array<char, B_ATTR_NAME_LENGTH> *>(
+                    BStackOrHeapArray<char, B_ATTR_NAME_LENGTH> &attr_name =
+                        *static_cast<
+                            BStackOrHeapArray<char, B_ATTR_NAME_LENGTH> *>(
                             params);
                     if (std::regex_match(
-                            attr_name.begin(), attr_name.end(),
+                            attr_name[0], attr_name[B_ATTR_NAME_LENGTH - 1],
                             std::regex(BString(*i).Append("\\0.*")))) {
                         return i;
                     }
@@ -55,11 +57,12 @@ void copyAttributes(BNode *source, BNode *destination,
         }
         if (exclude.EachElement(
                 [](const BString *i, void *params) -> const BString * {
-                    const std::array<char, B_ATTR_NAME_LENGTH> &attr_name =
-                        *static_cast<std::array<char, B_ATTR_NAME_LENGTH> *>(
+                    BStackOrHeapArray<char, B_ATTR_NAME_LENGTH> &attr_name =
+                        *static_cast<
+                            BStackOrHeapArray<char, B_ATTR_NAME_LENGTH> *>(
                             params);
                     if (std::regex_match(
-                            attr_name.begin(), attr_name.end(),
+                            attr_name[0], attr_name[B_ATTR_NAME_LENGTH - 1],
                             std::regex(BString(*i).Append("\\0.*")))) {
                         return i;
                     }
@@ -68,10 +71,9 @@ void copyAttributes(BNode *source, BNode *destination,
                 &attr_name) != nullptr) {
             goto end_of_loop;
         }
-        source->GetAttrInfo(attr_name.data(), &info);
-        source->ReadAttr(attr_name.data(), info.type, 0, &buffer, info.size);
-        destination->WriteAttr(attr_name.data(), info.type, 0, &buffer,
-                               info.size);
+        source->GetAttrInfo(attr_name, &info);
+        source->ReadAttr(attr_name, info.type, 0, &buffer, info.size);
+        destination->WriteAttr(attr_name, info.type, 0, &buffer, info.size);
 
     end_of_loop:;
     }
@@ -150,7 +152,8 @@ void generateAlbumsAndSingles(
         [](const std::tuple<BString, uint32, BString> *element,
            void *params) -> const std::tuple<BString, uint32, BString> * {
             const std::tuple<const BString &, const BString &> &vars =
-                *static_cast<std::tuple<const BString &, const BString &> *>(params);
+                *static_cast<std::tuple<const BString &, const BString &> *>(
+                    params);
             const BString &albums_path = std::get<0>(vars);
             const BString &singles_path = std::get<1>(vars);
             const std::tuple<BString, uint32, BString> &i = *element;
