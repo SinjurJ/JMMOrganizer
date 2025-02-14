@@ -1,7 +1,6 @@
 module;
 
 // TODO avoid excessive use of standard library
-#include <cstddef>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -45,15 +44,13 @@ void copyAttributes(BNode *source, BNode *destination,
                         *static_cast<
                             BStackOrHeapArray<char, B_ATTR_NAME_LENGTH> *>(
                             params);
-                    if (std::regex_match(
-                            attr_name[0], attr_name[B_ATTR_NAME_LENGTH - 1],
-                            std::regex(BString(*i).Append("\\0.*")))) {
+                    if (std::regex_match(&attr_name[0], std::regex(*i))) {
                         return i;
                     }
                     return nullptr;
                 },
                 &attr_name) == nullptr) {
-            goto end_of_loop; // TODO this is gross and should be removed
+            continue;
         }
         if (exclude.EachElement(
                 [](const BString *i, void *params) -> const BString * {
@@ -61,21 +58,17 @@ void copyAttributes(BNode *source, BNode *destination,
                         *static_cast<
                             BStackOrHeapArray<char, B_ATTR_NAME_LENGTH> *>(
                             params);
-                    if (std::regex_match(
-                            attr_name[0], attr_name[B_ATTR_NAME_LENGTH - 1],
-                            std::regex(BString(*i).Append("\\0.*")))) {
+                    if (std::regex_match(&attr_name[0], std::regex(*i))) {
                         return i;
                     }
                     return nullptr;
                 },
                 &attr_name) != nullptr) {
-            goto end_of_loop;
+            continue;
         }
         source->GetAttrInfo(attr_name, &info);
         source->ReadAttr(attr_name, info.type, 0, &buffer, info.size);
         destination->WriteAttr(attr_name, info.type, 0, &buffer, info.size);
-
-    end_of_loop:;
     }
 }
 
