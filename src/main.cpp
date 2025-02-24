@@ -58,7 +58,6 @@ class JMMOrganizerWindow : public BWindow {
         first_key_menu->AddItem(quit_menu_item);
 
         genres_check_box->SetEnabled(false);
-        tracks_check_box->SetEnabled(false);
 
         generate_button->SetEnabled(false);
 
@@ -99,61 +98,57 @@ class JMMOrganizerWindow : public BWindow {
                 albums_check_box->Value() || artists_check_box->Value() ||
                 genres_check_box->Value() || tracks_check_box->Value());
             break;
-        case GENERATE:
-            [&] { // TODO don't use lambda
-                if (!(albums_check_box->Value() || artists_check_box->Value() ||
-                      genres_check_box->Value() || tracks_check_box->Value())) {
-                    return;
-                }
+        case GENERATE: {
+            if (!(albums_check_box->Value() || artists_check_box->Value() ||
+                  genres_check_box->Value() || tracks_check_box->Value())) {
+                break;
+            }
 
-                if (process_tracks_thread > 0) {
-                    return;
-                }
+            if (process_tracks_thread > 0) {
+                break;
+            }
 
-                generate_button->SetEnabled(false);
+            generate_button->SetEnabled(false);
 
-                // TODO set predicate and volume in better location
-                // TODO should the query stuff be in JMMOrganizerApplication?
-                BVolume boot_volume; // TODO possibly implement other volumes
-                BVolumeRoster volume_roster;
-                volume_roster.GetBootVolume(&boot_volume);
-                music_query.SetVolume(&boot_volume);
-                music_query.SetPredicate("BEOS:TYPE == audio/* && name == *");
-                if (music_query.Fetch() != B_OK) {
-                    // TODO show window clarifying issue
-                    return;
-                }
-                uint8 flags = 0;
-                if (albums_check_box->Value()) {
-                    flags += ALBUMS;
-                }
-                if (artists_check_box->Value()) {
-                    flags += ARTISTS;
-                }
-                if (genres_check_box->Value()) {
-                    flags += GENRES;
-                }
-                if (tracks_check_box->Value()) {
-                    flags += TRACKS;
-                }
-                process_tracks_thread = spawn_thread(
-                    processTracks, "process_tracks", B_LOW_PRIORITY,
-                    new ProcessTracksData(&music_query, source_path,
-                                          destination_path, flags, this));
-                if (process_tracks_thread > 0) {
-                    resume_thread(process_tracks_thread);
-                }
-                return;
-            }();
+            // TODO set predicate and volume in better location
+            // TODO should the query stuff be in JMMOrganizerApplication?
+            BVolume boot_volume; // TODO possibly implement other volumes
+            BVolumeRoster volume_roster;
+            volume_roster.GetBootVolume(&boot_volume);
+            music_query.SetVolume(&boot_volume);
+            music_query.SetPredicate("BEOS:TYPE == audio/* && name == *");
+            if (music_query.Fetch() != B_OK) {
+                // TODO show window clarifying issue
+                break;
+            }
+            uint8 flags = 0;
+            if (albums_check_box->Value()) {
+                flags += ALBUMS;
+            }
+            if (artists_check_box->Value()) {
+                flags += ARTISTS;
+            }
+            if (genres_check_box->Value()) {
+                flags += GENRES;
+            }
+            if (tracks_check_box->Value()) {
+                flags += TRACKS;
+            }
+            process_tracks_thread = spawn_thread(
+                processTracks, "process_tracks", B_LOW_PRIORITY,
+                new ProcessTracksData(&music_query, source_path,
+                                      destination_path, flags, this));
+            if (process_tracks_thread > 0) {
+                resume_thread(process_tracks_thread);
+            }
             break;
-        case LINE_FROM_PROCESS:
-            [&] {
-                BString new_line;
-                message->FindString("line", &new_line);
-                progress_view->Insert(0, new_line, new_line.Length());
-                return;
-            }();
+        }
+        case LINE_FROM_PROCESS: {
+            BString new_line;
+            message->FindString("line", &new_line);
+            progress_view->Insert(0, new_line, new_line.Length());
             break;
+        }
         default:
             be_app->PostMessage(message);
         }
@@ -241,7 +236,6 @@ class JMMOrganizerApplication : public BApplication {
         BAboutWindow *about_window =
             new BAboutWindow(APPLICATION_NAME, "signature");
 
-        // TODO this might be silly over a standard char **
         BStackOrHeapArray<const char *, 2> authors(2);
         authors[0] = "Jareth McGhee";
         authors[1] = nullptr;

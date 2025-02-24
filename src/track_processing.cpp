@@ -123,21 +123,37 @@ BString storeFromAttribute(
     return BString();
 }
 
+BString storeTrack(BEntry *track, BDirectory *destination) {
+    BPath track_path(track);
+
+    BEntry old_link_entry;
+    destination->FindEntry(BString("tracks/").Append(track_path.Leaf()),
+                           &old_link_entry, false);
+    // TODO determine if necessary to do InitCheck
+    if (old_link_entry.InitCheck() == B_OK) {
+        old_link_entry.Remove(); // DANGEROUS; DELETES FILE
+    }
+
+    BSymLink track_link;
+    destination->CreateSymLink(BString("tracks/").Append(track_path.Leaf()),
+                               track_path.Path(), &track_link);
+
+    BNode track_node(track);
+    BObjectList<BString, true> include(2);
+    include.AddItem(new BString(".*"));
+    BObjectList<BString, true> exclude(2);
+    exclude.AddItem(new BString("BEOS:.*"));
+    copyAttributes(&track_node, &track_link, include, exclude);
+
+    return BString("Found track \"").Append(track_path.Leaf()).Append("\"\n");
+}
+
 void generateAlbumsAndSingles(
     const BString &destination_path,
     const BObjectList<std::tuple<BString, uint32, BString>, true>
         &album_storage) {
     const BString albums_path(BString(destination_path).Append("/albums/"));
     const BString singles_path(BString(destination_path).Append("/singles/"));
-
-    if (!BEntry(albums_path).Exists()) {
-        BDirectory albums_directory;
-        albums_directory.CreateDirectory(albums_path, nullptr);
-    }
-    if (!BEntry(singles_path).Exists()) {
-        BDirectory singles_directory;
-        singles_directory.CreateDirectory(singles_path, nullptr);
-    }
 
     std::tuple<const BString &, const BString &> params(albums_path,
                                                         singles_path);
@@ -222,12 +238,7 @@ void generateArtists(
     const BString &destination_path,
     const BObjectList<std::tuple<BString, uint32, BString>, true> &storage) {
     const BString artists_subpath("./artists/");
-
     BDirectory destination_directory(destination_path);
-
-    if (!BEntry(&destination_directory, artists_subpath).Exists()) {
-        destination_directory.CreateDirectory(artists_subpath, nullptr);
-    }
 
     std::tuple<const BString &, BDirectory &> params(artists_subpath,
                                                      destination_directory);
@@ -281,6 +292,41 @@ export struct ProcessTracksData {
 export status_t processTracks(void *data) {
     ProcessTracksData *args = static_cast<ProcessTracksData *>(data);
 
+    BDirectory destination(args->destination_path);
+    // TODO ensure this checks if destination exists correctly
+    if (destination.InitCheck() != B_OK) {
+        return B_ERROR;
+    }
+
+    if (args->flags & ALBUMS) {
+        const BString albums_subpath("albums");
+        if (!BEntry(&destination, albums_subpath).Exists()) {
+            destination.CreateDirectory(albums_subpath, nullptr);
+        }
+        const BString singles_subpath("singles");
+        if (!BEntry(&destination, singles_subpath).Exists()) {
+            destination.CreateDirectory(singles_subpath, nullptr);
+        }
+    }
+    if (args->flags & ARTISTS) {
+        const BString artists_subpath("artists");
+        if (!BEntry(&destination, artists_subpath).Exists()) {
+            destination.CreateDirectory(artists_subpath, nullptr);
+        }
+    }
+    if (args->flags & GENRES) {
+        const BString genres_subpath("genres");
+        if (!BEntry(&destination, genres_subpath).Exists()) {
+            destination.CreateDirectory(genres_subpath, nullptr);
+        }
+    }
+    if (args->flags & TRACKS) {
+        const BString tracks_subpath("tracks");
+        if (!BEntry(&destination, tracks_subpath).Exists()) {
+            destination.CreateDirectory(tracks_subpath, nullptr);
+        }
+    }
+
     BMessage beginning_line_message(LINE_FROM_PROCESS);
     beginning_line_message.AddString("line",
                                      BString("Beginning processing!\n\n"));
@@ -312,7 +358,7 @@ export status_t processTracks(void *data) {
             // TODO storeGenre
         }
         if (args->flags & TRACKS) {
-            // TODO storeTrack
+            new_line.Prepend(storeTrack(&entry, &destination));
         }
         if (!new_line.IsEmpty()) {
             BMessage new_line_message(LINE_FROM_PROCESS);
@@ -329,9 +375,6 @@ export status_t processTracks(void *data) {
     }
     if (args->flags & GENRES) {
         // TODO generateGenres
-    }
-    if (args->flags & TRACKS) {
-        // TODO generateTracks
     }
 
     BMessage finished_line_message(LINE_FROM_PROCESS);
