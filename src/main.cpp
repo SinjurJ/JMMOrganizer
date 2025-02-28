@@ -41,7 +41,7 @@ class JMMOrganizerWindow : public BWindow {
         // TODO determine what needs to be deleted explicitly
 
         BMenuBar *key_menu_bar = new BMenuBar("Key Menu Bar");
-        BMenu *first_key_menu = new BMenu("File");
+        BMenu *first_key_menu = new BMenu("JMMOrganizer");
         key_menu_bar->AddItem(first_key_menu);
 
         BMenuItem *about_menu_item =
