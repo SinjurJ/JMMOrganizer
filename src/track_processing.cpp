@@ -1,9 +1,6 @@
 module;
 
 // TODO avoid excessive use of standard library
-#include <cstring>
-#include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <regex>
 #include <tuple>
@@ -88,7 +85,6 @@ BString storeFromAttribute(
     // element. the documentation says the passed function returns a
     // boolean.
     // TODO confirm this interpretation is correct
-    // TODO make sure this works
     data_found =
         storage->EachElement(
             [](std::tuple<BString, uint32, BString> *i,
@@ -101,184 +97,130 @@ BString storeFromAttribute(
                 return nullptr;
             },
             &attribute_data) != nullptr;
-    if (!data_found) {
-        BPath entry_path;
-        entry.GetPath(&entry_path);
-        storage->AddItem(new std::tuple<BString, uint32, BString>(
-            attribute_data, 1, entry_path.Path()));
-        BStringList split_list(3); // TODO check for performance
-        attribute.Split(":", false, split_list);
-        BString attribute_name;
-        if (split_list.CountStrings() == 2) {
-            attribute_name = split_list.StringAt(1).ToLower();
-        } else {
-            attribute_name = attribute.ToLower(); // TODO ensure ToLower is good
-        }
-        return BString("Found ")
-            .Append(attribute_name)
-            .Append(" \"")
-            .Append(attribute_data)
-            .Append("\"\n");
+    if (data_found) {
+        return BString();
     }
-    return BString();
+    BPath entry_path;
+    entry.GetPath(&entry_path);
+    storage->AddItem(new std::tuple<BString, uint32, BString>(
+        attribute_data, 1, entry_path.Path()));
+    BStringList split_list(3); // TODO check for performance
+    attribute.Split(":", false, split_list);
+    BString attribute_name;
+    if (split_list.CountStrings() == 2) {
+        attribute_name = split_list.StringAt(1).ToLower();
+    } else {
+        attribute_name = attribute.ToLower(); // TODO ensure ToLower is good
+    }
+    return BString("Found ")
+        .Append(attribute_name)
+        .Append(" \"")
+        .Append(attribute_data)
+        .Append("\"\n");
 }
 
-BString storeTrack(BEntry *track, BDirectory *destination) {
-    BPath track_path(track);
-
-    BEntry old_link_entry;
-    destination->FindEntry(BString("tracks/").Append(track_path.Leaf()),
-                           &old_link_entry, false);
+void removeEntry(BString entry_path, BDirectory *destination) {
+    BEntry entry;
     // TODO determine if necessary to do InitCheck
-    if (old_link_entry.InitCheck() == B_OK) {
-        old_link_entry.Remove(); // DANGEROUS; DELETES FILE
+    destination->FindEntry(entry_path, &entry, false);
+    if (entry.InitCheck() == B_OK) {
+        entry.Remove(); // DANGEROUS; DELETES FILE
+    }
+}
+
+status_t generateAlbum(const BString &album, const BEntry &first_track,
+                       BDirectory *destination, const BString &subpath) {
+    if (album.IsEmpty()) {
+        return B_ERROR;
     }
 
-    BSymLink track_link;
-    destination->CreateSymLink(BString("tracks/").Append(track_path.Leaf()),
-                               track_path.Path(), &track_link);
+    const BString query_path(BString(subpath).Append(album));
 
-    BNode track_node(track);
+    removeEntry(query_path, destination);
+
+    BFile query_file;
+    if (destination->CreateFile(query_path, &query_file, false) != B_OK) {
+        return B_ERROR;
+    }
+
+    BString query_mime_type("application/x-vnd.Be-query");
+    query_file.WriteAttr("BEOS:TYPE", B_MIME_STRING_TYPE, 0, query_mime_type,
+                         query_mime_type.Length());
+    BString query_string(BString("BEOS:TYPE == audio/* && Audio:Album == \"")
+                             .Append(album)
+                             .Append("\""));
+    query_file.WriteAttr("_trk/qrystr", B_STRING_TYPE, 0, query_string,
+                         query_string.Length());
+
+    // TODO possibly get album_artist from vorbis tags
+    BObjectList<BString, true> include(4);
+    include.AddItem(new BString("Audio:Artist"));
+    include.AddItem(new BString("Media:Genre"));
+    include.AddItem(new BString("Media:Year"));
+    BObjectList<BString, true> exclude(2);
+    exclude.AddItem(new BString("BEOS:.*"));
+    BNode first_track_node(&first_track);
+    copyAttributes(&first_track_node, &query_file, include, exclude);
+
+    return B_OK;
+}
+
+status_t generateArtist(const BString &artist, BDirectory *destination,
+                        const BString &subpath) {
+    if (artist.IsEmpty()) {
+        return B_ERROR;
+    }
+
+    const BString query_path(BString(subpath).Append(artist));
+
+    removeEntry(query_path, destination);
+
+    BFile query_file;
+    if (destination->CreateFile(query_path, &query_file, false) != B_OK) {
+        return B_ERROR;
+    }
+
+    BString query_mime_type("application/x-vnd.Be-query");
+    query_file.WriteAttr("BEOS:TYPE", B_MIME_STRING_TYPE, 0, query_mime_type,
+                         query_mime_type.Length());
+    BString query_string(BString("BEOS:TYPE == audio/* && Audio:Artist == \"")
+                             .Append(artist)
+                             .Append("\""));
+    query_file.WriteAttr("_trk/qrystr", B_STRING_TYPE, 0, query_string,
+                         query_string.Length());
+
+    return B_OK;
+}
+
+status_t generateTrack(const BEntry &track, BDirectory *destination,
+                       const BString &subpath) {
+    const BPath track_path(&track);
+    const BString link_path(BString(subpath).Append(track_path.Leaf()));
+
+    removeEntry(link_path, destination);
+
+    BSymLink track_link;
+    if (destination->CreateSymLink(link_path, track_path.Path(), &track_link) !=
+        B_OK) {
+        return B_ERROR;
+    }
+
+    BNode track_node(&track);
     BObjectList<BString, true> include(2);
     include.AddItem(new BString(".*"));
     BObjectList<BString, true> exclude(2);
     exclude.AddItem(new BString("BEOS:.*"));
     copyAttributes(&track_node, &track_link, include, exclude);
 
-    return BString("Found track \"").Append(track_path.Leaf()).Append("\"\n");
-}
-
-void generateAlbumsAndSingles(
-    const BString &destination_path,
-    const BObjectList<std::tuple<BString, uint32, BString>, true>
-        &album_storage) {
-    const BString albums_path(BString(destination_path).Append("/albums/"));
-    const BString singles_path(BString(destination_path).Append("/singles/"));
-
-    std::tuple<const BString &, const BString &> params(albums_path,
-                                                        singles_path);
-    album_storage.EachElement(
-        [](const std::tuple<BString, uint32, BString> *element,
-           void *params) -> const std::tuple<BString, uint32, BString> * {
-            const std::tuple<const BString &, const BString &> &vars =
-                *static_cast<std::tuple<const BString &, const BString &> *>(
-                    params);
-            const BString &albums_path = std::get<0>(vars);
-            const BString &singles_path = std::get<1>(vars);
-            const std::tuple<BString, uint32, BString> &i = *element;
-
-            if (std::get<1>(i) == 1) {
-                std::cout << "Found single \"" << std::get<0>(i) << "\"\n";
-            } else {
-                std::cout << "Found album \"" << std::get<0>(i) << "\" with "
-                          << std::get<1>(i) << " tracks\n";
-            }
-            if (std::get<1>(i) == 1) {
-                std::filesystem::path original_path(std::get<2>(i).String());
-                if (std::filesystem::is_symlink(original_path)) {
-                    original_path =
-                        std::filesystem::read_symlink(original_path);
-                }
-                std::filesystem::path link_path(
-                    BString(singles_path)
-                        .Append(original_path.filename().c_str())
-                        .String());
-                if (std::filesystem::exists(link_path)) {
-                    std::filesystem::remove(
-                        link_path); // DANGEROUS; DELETES FILE
-                }
-                std::filesystem::create_symlink(original_path, link_path);
-                BNode original_node(original_path.c_str());
-                BNode link_node(link_path.c_str());
-
-                BObjectList<BString, true> include(2);
-                include.AddItem(new BString(".*"));
-                BObjectList<BString, true> exclude(2);
-                exclude.AddItem(new BString("BEOS:.*"));
-                copyAttributes(&original_node, &link_node, include, exclude);
-                return nullptr;
-            }
-
-            std::filesystem::path query_path(
-                BString(albums_path).Append(std::get<0>(i)).String());
-            if (std::filesystem::exists(query_path)) {
-                std::filesystem::remove(query_path); // DANGEROUS; DELETES FILE
-            }
-            std::ofstream query_file(query_path);
-            query_file.close(); // this creates an empty file
-            BNode query_node(query_path.c_str());
-
-            BString query_mime_type("application/x-vnd.Be-query");
-            query_node.WriteAttr("BEOS:TYPE", B_MIME_STRING_TYPE, 0,
-                                 query_mime_type, query_mime_type.Length());
-            BString query_string(
-                BString("BEOS:TYPE == audio/* && Audio:Album == \"")
-                    .Append(std::get<0>(i))
-                    .Append("\""));
-            query_node.WriteAttr("_trk/qrystr", B_STRING_TYPE, 0, query_string,
-                                 query_string.Length());
-
-            // TODO possibly get album_artist from vorbis tags
-
-            BObjectList<BString, true> include(2);
-            include.AddItem(new BString("Audio:Artist"));
-            include.AddItem(new BString("Media:Genre"));
-            include.AddItem(new BString("Media:Year"));
-            BObjectList<BString, true> exclude(2);
-            exclude.AddItem(new BString(""));
-            // get artist, genre, and year from first track in album
-            BNode first_track_node(std::get<2>(i));
-            copyAttributes(&first_track_node, &query_node, include, exclude);
-            return nullptr;
-        },
-        &params);
-}
-
-void generateArtists(
-    const BString &destination_path,
-    const BObjectList<std::tuple<BString, uint32, BString>, true> &storage) {
-    const BString artists_subpath("./artists/");
-    BDirectory destination_directory(destination_path);
-
-    std::tuple<const BString &, BDirectory &> params(artists_subpath,
-                                                     destination_directory);
-    storage.EachElement(
-        [](const std::tuple<BString, uint32, BString> *element,
-           void *params) -> const std::tuple<BString, uint32, BString> * {
-            const std::tuple<const BString &, BDirectory &> &vars =
-                *static_cast<std::tuple<const BString &, BDirectory &> *>(
-                    params);
-            const BString &artists_subpath = std::get<0>(vars);
-            BDirectory &destination_directory = std::get<1>(vars);
-            const std::tuple<BString, uint32, BString> &i = *element;
-
-            std::cout << "Found artist \"" << std::get<0>(i) << "\"\n";
-
-            BFile artist_file;
-            if (destination_directory.CreateFile(
-                    BString(artists_subpath).Append(std::get<0>(i)),
-                    &artist_file, false) != B_OK) {
-                return nullptr;
-            }
-            BString query_mime_type("application/x-vnd.Be-query");
-            artist_file.WriteAttr("BEOS:TYPE", B_MIME_STRING_TYPE, 0,
-                                  query_mime_type, query_mime_type.Length());
-            BString query_string(
-                BString("BEOS:TYPE == audio/* && Audio:Artist == \"")
-                    .Append(std::get<0>(i))
-                    .Append("\""));
-            artist_file.WriteAttr("_trk/qrystr", B_STRING_TYPE, 0, query_string,
-                                  query_string.Length());
-            return nullptr;
-        },
-        &params);
+    return B_OK;
 }
 
 export enum ProcessTracksFlags {
     ALBUMS = 0b00000001,
     ARTISTS = 0b00000010,
     GENRES = 0b00000100,
-    TRACKS = 0b00001000,
+    SINGLES = 0b00001000,
+    TRACKS = 0b00010000,
 };
 
 export struct ProcessTracksData {
@@ -298,30 +240,32 @@ export status_t processTracks(void *data) {
         return B_ERROR;
     }
 
+    const BString albums_subpath("albums/");
+    const BString artists_subpath("artists/");
+    const BString genres_subpath("genres/");
+    const BString singles_subpath("singles/");
+    const BString tracks_subpath("tracks/");
     if (args->flags & ALBUMS) {
-        const BString albums_subpath("albums");
         if (!BEntry(&destination, albums_subpath).Exists()) {
             destination.CreateDirectory(albums_subpath, nullptr);
         }
-        const BString singles_subpath("singles");
-        if (!BEntry(&destination, singles_subpath).Exists()) {
-            destination.CreateDirectory(singles_subpath, nullptr);
-        }
     }
     if (args->flags & ARTISTS) {
-        const BString artists_subpath("artists");
         if (!BEntry(&destination, artists_subpath).Exists()) {
             destination.CreateDirectory(artists_subpath, nullptr);
         }
     }
     if (args->flags & GENRES) {
-        const BString genres_subpath("genres");
         if (!BEntry(&destination, genres_subpath).Exists()) {
             destination.CreateDirectory(genres_subpath, nullptr);
         }
     }
+    if (args->flags & SINGLES) {
+        if (!BEntry(&destination, singles_subpath).Exists()) {
+            destination.CreateDirectory(singles_subpath, nullptr);
+        }
+    }
     if (args->flags & TRACKS) {
-        const BString tracks_subpath("tracks");
         if (!BEntry(&destination, tracks_subpath).Exists()) {
             destination.CreateDirectory(tracks_subpath, nullptr);
         }
@@ -343,10 +287,10 @@ export status_t processTracks(void *data) {
             continue;
         }
 
-        std::cout << track_path << std::endl;
+        std::cout << track_path << "\n";
 
         BString new_line;
-        if (args->flags & ALBUMS) {
+        if (args->flags & ALBUMS || args->flags & SINGLES) {
             new_line.Prepend(
                 storeFromAttribute("Audio:Album", entry, &album_storage));
         }
@@ -355,26 +299,54 @@ export status_t processTracks(void *data) {
                 storeFromAttribute("Audio:Artist", entry, &artist_storage));
         }
         if (args->flags & GENRES) {
-            // TODO storeGenre
+            // TODO generateGenre
         }
         if (args->flags & TRACKS) {
-            new_line.Prepend(storeTrack(&entry, &destination));
+            // TODO wait to generate tracks until after loop
+            new_line.Prepend(BString("Found track \"")
+                                 .Append(entry_path.Leaf())
+                                 .Append("\"\n"));
+            if (generateTrack(entry, &destination, tracks_subpath) != B_OK) {
+                std::cerr << "Failed to generate track \"" << entry_path.Leaf()
+                          << "\"\n";
+            }
         }
         if (!new_line.IsEmpty()) {
             BMessage new_line_message(LINE_FROM_PROCESS);
             new_line_message.AddString("line", new_line);
             args->caller->PostMessage(&new_line_message);
         }
+
+        std::cerr.flush();
+        std::cout.flush();
     }
-    if (args->flags & ALBUMS) {
-        // TODO use BPath or BDirectory instead of BString
-        generateAlbumsAndSingles(args->destination_path, album_storage);
+
+    if (args->flags & ALBUMS || args->flags & SINGLES) {
+        for (auto i = 0; i < album_storage.CountItems(); i++) {
+            const std::tuple<BString, uint32, BString> item =
+                *album_storage.ItemAt(i);
+            if (args->flags & SINGLES) {
+                if (std::get<1>(item) != 1) {
+                    continue;
+                }
+                generateTrack(BEntry(std::get<2>(item), false), &destination,
+                              singles_subpath);
+            }
+            if (args->flags & ALBUMS) {
+                if (std::get<1>(item) < 2) {
+                    continue;
+                }
+                generateAlbum(std::get<0>(item),
+                              BEntry(std::get<2>(item), false), &destination,
+                              albums_subpath);
+            }
+        }
     }
     if (args->flags & ARTISTS) {
-        generateArtists(args->destination_path, artist_storage);
-    }
-    if (args->flags & GENRES) {
-        // TODO generateGenres
+        for (auto i = 0; i < artist_storage.CountItems(); i++) {
+            generateArtist(std::get<0>(*artist_storage.ItemAt(i)), &destination,
+                           artists_subpath);
+        }
     }
 
     BMessage finished_line_message(LINE_FROM_PROCESS);

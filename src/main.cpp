@@ -73,9 +73,10 @@ class JMMOrganizerWindow : public BWindow {
             .Add(albums_check_box, 0, 1)
             .Add(artists_check_box, 0, 2)
             .Add(genres_check_box, 0, 3)
-            .Add(tracks_check_box, 0, 4)
-            .Add(generate_button, 0, 5)
-            .Add(progress_scroll_view, 1, 1, 1, 5);
+            .Add(singles_check_box, 0, 4)
+            .Add(tracks_check_box, 0, 5)
+            .Add(generate_button, 0, 6)
+            .Add(progress_scroll_view, 1, 1, 1, 6);
     }
 
     void MessageReceived(BMessage *message) {
@@ -83,24 +84,28 @@ class JMMOrganizerWindow : public BWindow {
         case ACTIVATE_ALBUMS:
         case ACTIVATE_ARTISTS:
         case ACTIVATE_GENRES:
+        case ACTIVATE_SINGLES:
         case ACTIVATE_TRACKS:
             if (process_tracks_thread > 0) {
                 break;
             }
             generate_button->SetEnabled(
                 albums_check_box->Value() || artists_check_box->Value() ||
-                genres_check_box->Value() || tracks_check_box->Value());
+                genres_check_box->Value() || singles_check_box->Value() ||
+                tracks_check_box->Value());
             break;
         case FINISHED_PROCESS:
             process_tracks_thread = 0;
             music_query.Clear();
             generate_button->SetEnabled(
                 albums_check_box->Value() || artists_check_box->Value() ||
-                genres_check_box->Value() || tracks_check_box->Value());
+                genres_check_box->Value() || singles_check_box->Value() ||
+                tracks_check_box->Value());
             break;
         case GENERATE: {
             if (!(albums_check_box->Value() || artists_check_box->Value() ||
-                  genres_check_box->Value() || tracks_check_box->Value())) {
+                  genres_check_box->Value() || singles_check_box->Value() ||
+                  tracks_check_box->Value())) {
                 break;
             }
 
@@ -130,6 +135,9 @@ class JMMOrganizerWindow : public BWindow {
             }
             if (genres_check_box->Value()) {
                 flags += GENRES;
+            }
+            if (singles_check_box->Value()) {
+                flags += SINGLES;
             }
             if (tracks_check_box->Value()) {
                 flags += TRACKS;
@@ -183,12 +191,15 @@ class JMMOrganizerWindow : public BWindow {
   private:
     // TODO should the pointers be const?
     // TODO should there be separate bools stored for state?
+    // TODO make it easier to add new options
     BCheckBox *albums_check_box =
         new BCheckBox("Albums", new BMessage(ACTIVATE_ALBUMS));
     BCheckBox *artists_check_box =
         new BCheckBox("Artists", new BMessage(ACTIVATE_ARTISTS));
     BCheckBox *genres_check_box =
         new BCheckBox("Genres", new BMessage(ACTIVATE_GENRES));
+    BCheckBox *singles_check_box =
+        new BCheckBox("Singles", new BMessage(ACTIVATE_SINGLES));
     BCheckBox *tracks_check_box =
         new BCheckBox("Tracks", new BMessage(ACTIVATE_TRACKS));
 
