@@ -5,7 +5,7 @@ Copyright xxxx-xxxx, Haiku, Inc. All Rights Reserved.
 Distributed under the terms of the MIT License.
 "
 
-With "xxxx-xxxx" representing a range of years. The MIT license can be found in this repository in third_party_licenses/haiku, and the exact years present for each header can be found in Haiku's repository, a link to which is can also be found in third_party_licenses/haiku.
+With "xxxx-xxxx" representing a range of years. The MIT license can be found in this repository in third_party_licenses/haiku, and the exact years present for each header can be found in Haiku's repository, a link to which can also be found in third_party_licenses/haiku.
 
 An exception to this is the ObjectList.h file, which instead includes the following:
 
