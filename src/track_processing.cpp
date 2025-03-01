@@ -112,6 +112,9 @@ BString storeFromAttribute(
     } else {
         attribute_name = attribute.ToLower(); // TODO ensure ToLower is good
     }
+    if (attribute_data.IsEmpty()) {
+        return BString("Found empty ").Append(attribute_name).Append("\n");
+    }
     return BString("Found ")
         .Append(attribute_name)
         .Append(" \"")
@@ -128,29 +131,42 @@ void removeEntry(BString entry_path, BDirectory *destination) {
     }
 }
 
-status_t generateAlbum(const BString &album, const BEntry &first_track,
-                       BDirectory *destination, const BString &subpath) {
-    if (album.IsEmpty()) {
+status_t generateQuery(const BString &name, const BString &type,
+                       BFile *query_file, BDirectory *destination,
+                       const BString &subpath) {
+    if (name.IsEmpty()) {
         return B_ERROR;
     }
 
-    const BString query_path(BString(subpath).Append(album));
+    const BString query_path(BString(subpath).Append(name));
 
     removeEntry(query_path, destination);
 
-    BFile query_file;
-    if (destination->CreateFile(query_path, &query_file, false) != B_OK) {
+    if (destination->CreateFile(query_path, query_file, false) != B_OK) {
         return B_ERROR;
     }
 
-    BString query_mime_type("application/x-vnd.Be-query");
-    query_file.WriteAttr("BEOS:TYPE", B_MIME_STRING_TYPE, 0, query_mime_type,
-                         query_mime_type.Length());
-    BString query_string(BString("BEOS:TYPE == audio/* && Audio:Album == \"")
-                             .Append(album)
-                             .Append("\""));
-    query_file.WriteAttr("_trk/qrystr", B_STRING_TYPE, 0, query_string,
-                         query_string.Length());
+    const BString query_mime_type("application/x-vnd.Be-query");
+    query_file->WriteAttr("BEOS:TYPE", B_MIME_STRING_TYPE, 0, query_mime_type,
+                          query_mime_type.Length());
+    const BString query_string(BString("BEOS:TYPE == audio/* && ")
+                                   .Append(type)
+                                   .Append(" == \"")
+                                   .Append(name)
+                                   .Append("\""));
+    query_file->WriteAttr("_trk/qrystr", B_STRING_TYPE, 0, query_string,
+                          query_string.Length());
+
+    return B_OK;
+}
+
+status_t generateAlbum(const BString &album, const BEntry &first_track,
+                       BDirectory *destination, const BString &subpath) {
+    BFile query_file;
+    if (generateQuery(album, "Audio:Album", &query_file, destination,
+                      subpath) != B_OK) {
+        return B_ERROR;
+    }
 
     // TODO possibly get album_artist from vorbis tags
     BObjectList<BString, true> include(4);
@@ -167,29 +183,16 @@ status_t generateAlbum(const BString &album, const BEntry &first_track,
 
 status_t generateArtist(const BString &artist, BDirectory *destination,
                         const BString &subpath) {
-    if (artist.IsEmpty()) {
-        return B_ERROR;
-    }
-
-    const BString query_path(BString(subpath).Append(artist));
-
-    removeEntry(query_path, destination);
-
     BFile query_file;
-    if (destination->CreateFile(query_path, &query_file, false) != B_OK) {
-        return B_ERROR;
-    }
+    return generateQuery(artist, "Audio:Artist", &query_file, destination,
+                         subpath);
+}
 
-    BString query_mime_type("application/x-vnd.Be-query");
-    query_file.WriteAttr("BEOS:TYPE", B_MIME_STRING_TYPE, 0, query_mime_type,
-                         query_mime_type.Length());
-    BString query_string(BString("BEOS:TYPE == audio/* && Audio:Artist == \"")
-                             .Append(artist)
-                             .Append("\""));
-    query_file.WriteAttr("_trk/qrystr", B_STRING_TYPE, 0, query_string,
-                         query_string.Length());
-
-    return B_OK;
+status_t generateGenre(const BString &genre, BDirectory *destination,
+                       const BString &subpath) {
+    BFile query_file;
+    return generateQuery(genre, "Media:Genre", &query_file, destination,
+                         subpath);
 }
 
 status_t generateTrack(const BEntry &track, BDirectory *destination,
@@ -240,6 +243,8 @@ export status_t processTracks(void *data) {
         return B_ERROR;
     }
 
+    // TODO print errors to cerr when things fail instead of failing silently
+
     const BString albums_subpath("albums/");
     const BString artists_subpath("artists/");
     const BString genres_subpath("genres/");
@@ -278,10 +283,10 @@ export status_t processTracks(void *data) {
 
     BObjectList<std::tuple<BString, uint32, BString>, true> album_storage;
     BObjectList<std::tuple<BString, uint32, BString>, true> artist_storage;
+    BObjectList<std::tuple<BString, uint32, BString>, true> genre_storage;
     BEntry entry;
     while (args->music_query->GetNextEntry(&entry) == B_OK) {
-        BPath entry_path;
-        entry.GetPath(&entry_path);
+        BPath entry_path(&entry);
         BString track_path(entry_path.Path());
         if (!track_path.StartsWith(args->source_path)) {
             continue;
@@ -299,7 +304,8 @@ export status_t processTracks(void *data) {
                 storeFromAttribute("Audio:Artist", entry, &artist_storage));
         }
         if (args->flags & GENRES) {
-            // TODO generateGenre
+            new_line.Prepend(
+                storeFromAttribute("Media:Genre", entry, &genre_storage));
         }
         if (args->flags & TRACKS) {
             // TODO wait to generate tracks until after loop
@@ -323,29 +329,44 @@ export status_t processTracks(void *data) {
 
     if (args->flags & ALBUMS || args->flags & SINGLES) {
         for (auto i = 0; i < album_storage.CountItems(); i++) {
-            const std::tuple<BString, uint32, BString> item =
+            const std::tuple<BString, uint32, BString> &item =
                 *album_storage.ItemAt(i);
+            const BEntry entry(std::get<2>(item), false);
+            const BPath path(&entry);
             if (args->flags & SINGLES) {
-                if (std::get<1>(item) != 1) {
-                    continue;
+                if (std::get<1>(item) == 1) {
+                    if (generateTrack(entry, &destination, singles_subpath) !=
+                        B_OK) {
+                        std::cerr << "Failed to generate single \""
+                                  << path.Leaf() << "\"\n";
+                    }
                 }
-                generateTrack(BEntry(std::get<2>(item), false), &destination,
-                              singles_subpath);
             }
             if (args->flags & ALBUMS) {
-                if (std::get<1>(item) < 2) {
-                    continue;
+                if (std::get<1>(item) > 1) {
+                    if (generateAlbum(std::get<0>(item), entry, &destination,
+                                      albums_subpath) != B_OK) {
+                        std::cerr << "Failed to generate album \""
+                                  << path.Leaf() << "\"\n";
+                    }
                 }
-                generateAlbum(std::get<0>(item),
-                              BEntry(std::get<2>(item), false), &destination,
-                              albums_subpath);
             }
         }
     }
     if (args->flags & ARTISTS) {
         for (auto i = 0; i < artist_storage.CountItems(); i++) {
-            generateArtist(std::get<0>(*artist_storage.ItemAt(i)), &destination,
-                           artists_subpath);
+            const BString &artist = std::get<0>(*artist_storage.ItemAt(i));
+            if (generateArtist(artist, &destination, artists_subpath) != B_OK) {
+                std::cerr << "Failed to generate artist \"" << artist << "\"\n";
+            }
+        }
+    }
+    if (args->flags & GENRES) {
+        for (auto i = 0; i < genre_storage.CountItems(); i++) {
+            const BString &genre = std::get<0>(*genre_storage.ItemAt(i));
+            if (generateGenre(genre, &destination, genres_subpath) != B_OK) {
+                std::cerr << "Failed to generate genre \"" << genre << "\"\n";
+            }
         }
     }
 
@@ -356,6 +377,9 @@ export status_t processTracks(void *data) {
 
     BMessage finished_message(FINISHED_PROCESS);
     args->caller->PostMessage(&finished_message);
+
+    std::cerr.flush();
+    std::cout.flush();
 
     delete args;
 

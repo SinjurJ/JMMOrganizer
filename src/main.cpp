@@ -57,8 +57,6 @@ class JMMOrganizerWindow : public BWindow {
         first_key_menu->AddItem(new BSeparatorItem());
         first_key_menu->AddItem(quit_menu_item);
 
-        genres_check_box->SetEnabled(false);
-
         generate_button->SetEnabled(false);
 
         progress_view->MakeEditable(false);
