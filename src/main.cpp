@@ -27,9 +27,14 @@
 #include <VolumeRoster.h>
 #include <Window.h>
 
+import settings;
 import track_processing;
 
-const BString APPLICATION_NAME = "JMMOrganizer"; // TODO determine if efficient
+// TODO determine if efficient
+const BString APPLICATION_NAME = "JMMOrganizer";
+// TODO should it be SinjurJ instead of sinjurj?
+const BString SIGNATURE =
+    BString("application/x-nd.sinjurj-").Append(APPLICATION_NAME);
 
 class JMMOrganizerWindow : public BWindow {
   public:
@@ -44,11 +49,10 @@ class JMMOrganizerWindow : public BWindow {
         BMenu *first_key_menu = new BMenu("JMMOrganizer");
         key_menu_bar->AddItem(first_key_menu);
 
-        BMenuItem *about_menu_item =
-            new BMenuItem(BString("About").Append(B_UTF8_ELLIPSIS),
-                          new BMessage(B_ABOUT_REQUESTED));
-        BMenuItem *settings_menu_item =
-            new BMenuItem(BString("Settings").Append(B_UTF8_ELLIPSIS), nullptr);
+        BMenuItem *about_menu_item = new BMenuItem(
+            "About" B_UTF8_ELLIPSIS, new BMessage(B_ABOUT_REQUESTED));
+        BMenuItem *settings_menu_item = new BMenuItem(
+            "Settings" B_UTF8_ELLIPSIS, new BMessage(SETTINGS_REQUESTED));
         BMenuItem *quit_menu_item =
             new BMenuItem("Quit", new BMessage(B_QUIT_REQUESTED));
         quit_menu_item->SetShortcut('Q', B_COMMAND_KEY);
@@ -77,7 +81,7 @@ class JMMOrganizerWindow : public BWindow {
             .Add(progress_scroll_view, 1, 1, 1, 6);
     }
 
-    void MessageReceived(BMessage *message) {
+    void MessageReceived(BMessage *message) override {
         switch (message->what) {
         case ACTIVATE_ALBUMS:
         case ACTIVATE_ARTISTS:
@@ -160,7 +164,7 @@ class JMMOrganizerWindow : public BWindow {
         }
     }
 
-    bool QuitRequested() {
+    bool QuitRequested() override {
         // TODO ensure there aren't major memory leaks
         // TODO consider something better than killing the thread
         kill_thread(process_tracks_thread);
@@ -240,10 +244,9 @@ class JMMOrganizerApplication : public BApplication {
         window->Show();
     }
 
-    void AboutRequested() {
-        BApplication::AboutRequested();
+    void AboutRequested() override {
         BAboutWindow *about_window =
-            new BAboutWindow(APPLICATION_NAME, "signature");
+            new BAboutWindow(APPLICATION_NAME, SIGNATURE);
 
         BStackOrHeapArray<const char *, 2> authors(2);
         authors[0] = "Jareth McGhee";
@@ -267,11 +270,25 @@ class JMMOrganizerApplication : public BApplication {
 
         about_window->Show();
     }
+
+    void MessageReceived(BMessage *message) override {
+        switch (message->what) {
+        case SETTINGS_REQUESTED:
+            SettingsRequested();
+            break;
+        default:
+            BApplication::MessageReceived(message);
+        }
+    }
+
+    void SettingsRequested() {
+        SettingsWindow *settings_window = new SettingsWindow();
+
+        settings_window->Show();
+    }
 };
 
 int main() {
-    // TODO should it be SinjurJ instead of sinjurj?
-    JMMOrganizerApplication application(
-        BString("application/x-nd.sinjurj-").Append(APPLICATION_NAME));
+    JMMOrganizerApplication application(SIGNATURE);
     application.Run();
 }

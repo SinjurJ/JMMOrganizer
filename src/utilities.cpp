@@ -9,4 +9,5 @@ export enum process_message_code {
     FINISHED_PROCESS = 'fini',
     GENERATE = 'gene',
     LINE_FROM_PROCESS = 'line',
+    SETTINGS_REQUESTED = 'sett',
 };

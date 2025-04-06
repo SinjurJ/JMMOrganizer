@@ -9,6 +9,7 @@ target_sources(${PROJECT_NAME}
     PRIVATE
         src/main.cpp
     PRIVATE FILE_SET CXX_MODULES FILES
+        src/settings.cpp
         src/track_processing.cpp
         src/utilities.cpp
 )
