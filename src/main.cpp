@@ -55,6 +55,7 @@ class JMMOrganizerWindow : public BWindow {
             "Settings" B_UTF8_ELLIPSIS, new BMessage(SETTINGS_REQUESTED));
         BMenuItem *quit_menu_item =
             new BMenuItem("Quit", new BMessage(B_QUIT_REQUESTED));
+        settings_menu_item->SetShortcut(',', B_COMMAND_KEY);
         quit_menu_item->SetShortcut('Q', B_COMMAND_KEY);
         first_key_menu->AddItem(about_menu_item);
         first_key_menu->AddItem(settings_menu_item);
@@ -170,7 +171,7 @@ class JMMOrganizerWindow : public BWindow {
         kill_thread(process_tracks_thread);
 
         // TODO don't fail silently
-        BRect current_frame = this->Frame();
+        BRect current_frame = Frame();
         BMessage frame_message;
         if (frame_message.AddRect("frame", current_frame) != B_OK) {
             return true;
@@ -219,9 +220,6 @@ class JMMOrganizerWindow : public BWindow {
 class JMMOrganizerApplication : public BApplication {
   public:
     JMMOrganizerApplication(const char *signature) : BApplication(signature) {
-        // TODO ensure window is deleted properly on quit
-        JMMOrganizerWindow *window;
-
         BFile config_file;
         BMessage frame_message;
         BRect frame(50, 50, 600, 100);
@@ -240,8 +238,8 @@ class JMMOrganizerApplication : public BApplication {
         if (frame.RightBottom().y - frame.RightTop().y > 550) {
             frame.SetRightBottom(frame.RightTop() + BPoint(0, 50));
         }
-        window = new JMMOrganizerWindow(frame, APPLICATION_NAME);
-        window->Show();
+        main_window = new JMMOrganizerWindow(frame, APPLICATION_NAME);
+        main_window->Show();
     }
 
     void AboutRequested() override {
@@ -273,6 +271,9 @@ class JMMOrganizerApplication : public BApplication {
 
     void MessageReceived(BMessage *message) override {
         switch (message->what) {
+        case SETTINGS_CLOSED:
+            settings_window = nullptr;
+            break;
         case SETTINGS_REQUESTED:
             SettingsRequested();
             break;
@@ -282,10 +283,25 @@ class JMMOrganizerApplication : public BApplication {
     }
 
     void SettingsRequested() {
-        SettingsWindow *settings_window = new SettingsWindow();
-
-        settings_window->Show();
+        if (settings_window == nullptr) {
+            settings_window = new SettingsWindow();
+            settings_window->ResizeToPreferred();
+            settings_window->ResizeBy(150, 0);
+        }
+        if (main_window != nullptr) {
+            settings_window->CenterIn(main_window->Frame());
+        }
+        if (settings_window->IsHidden()) {
+            settings_window->Show();
+        } else {
+            settings_window->Activate(true);
+        }
     }
+
+  private:
+    // TODO determine if these need to be deleted
+    JMMOrganizerWindow *main_window = nullptr;
+    SettingsWindow *settings_window = nullptr;
 };
 
 int main() {
