@@ -131,6 +131,10 @@ void removeEntry(BString entry_path, BDirectory *destination) {
     }
 }
 
+BString cleanName(const BString &name) {
+    return BString(name).ReplaceAll('/', '-');
+}
+
 status_t generateQuery(const BString &name, const BString &type,
                        BFile *query_file, BDirectory *destination,
                        const BString &subpath) {
@@ -138,7 +142,7 @@ status_t generateQuery(const BString &name, const BString &type,
         return B_ERROR;
     }
 
-    const BString query_path(BString(subpath).Append(name));
+    const BString query_path(BString(subpath).Append(cleanName(name)));
 
     removeEntry(query_path, destination);
 
@@ -198,7 +202,8 @@ status_t generateGenre(const BString &genre, BDirectory *destination,
 status_t generateTrack(const BEntry &track, BDirectory *destination,
                        const BString &subpath) {
     const BPath track_path(&track);
-    const BString link_path(BString(subpath).Append(track_path.Leaf()));
+    const BString link_path(
+        BString(subpath).Append(cleanName(track_path.Leaf())));
 
     removeEntry(link_path, destination);
 

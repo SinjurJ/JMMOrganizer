@@ -26,11 +26,11 @@ export class SettingsWindow : public BWindow {
             .Add(destination_control->CreateTextViewLayoutItem(), 1, 1, 3, 1)
             .Add(new BButton("Browse" B_UTF8_ELLIPSIS, nullptr), 5, 1);
     }
-    
+
     void Quit() override {
         BMessage message(SETTINGS_CLOSED);
         be_app->PostMessage(&message);
-        
+
         BWindow::Quit();
     }
 
