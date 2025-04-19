@@ -347,7 +347,7 @@ export status_t processTracks(void *data) {
                     if (generateAlbum(std::get<0>(item), entry, &destination,
                                       albums_subpath) != B_OK) {
                         std::cerr << "Failed to generate album \""
-                                  << path.Leaf() << "\"\n";
+                                  << std::get<0>(item) << "\"\n";
                     }
                 }
             }
