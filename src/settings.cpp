@@ -6,6 +6,7 @@ module;
 #include <LayoutBuilder.h>
 #include <Message.h>
 #include <Rect.h>
+#include <SeparatorView.h>
 #include <TextControl.h>
 #include <Window.h>
 
@@ -21,10 +22,15 @@ export class SettingsWindow : public BWindow {
         BLayoutBuilder::Grid<>(this)
             .Add(source_control->CreateLabelLayoutItem(), 0, 0)
             .Add(source_control->CreateTextViewLayoutItem(), 1, 0, 3, 1)
-            .Add(new BButton("Browse" B_UTF8_ELLIPSIS, nullptr), 5, 0)
+            .Add(new BButton("Browse" B_UTF8_ELLIPSIS, nullptr), 4, 0)
             .Add(destination_control->CreateLabelLayoutItem(), 0, 1)
             .Add(destination_control->CreateTextViewLayoutItem(), 1, 1, 3, 1)
-            .Add(new BButton("Browse" B_UTF8_ELLIPSIS, nullptr), 5, 1);
+            .Add(new BButton("Browse" B_UTF8_ELLIPSIS, nullptr), 4, 1)
+            .Add(new BSeparatorView(), 0, 2, 5, 1)
+            .AddGroup(B_HORIZONTAL, B_USE_DEFAULT_SPACING, 0, 3, 5, 1)
+            .Add(new BButton("Cancel", nullptr))
+            .AddGlue()
+            .Add(new BButton("Apply", nullptr));
     }
 
     void Quit() override {
