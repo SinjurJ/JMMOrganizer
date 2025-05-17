@@ -168,7 +168,9 @@ class JMMOrganizerWindow : public BWindow {
     bool QuitRequested() override {
         // TODO ensure there aren't major memory leaks
         // TODO consider something better than killing the thread
-        kill_thread(process_tracks_thread);
+        if (process_tracks_thread > 0) {
+            kill_thread(process_tracks_thread);
+        }
 
         // TODO don't fail silently
         BRect current_frame = Frame();
