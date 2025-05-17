@@ -20,11 +20,9 @@ export class SettingsWindow : public BWindow {
         : BWindow(BRect(0, 0, 0, 0), "Settings", B_TITLED_WINDOW,
                   B_NOT_RESIZABLE | B_NOT_ZOOMABLE) {
         BLayoutBuilder::Grid<>(this)
-            .Add(source_control->CreateLabelLayoutItem(), 0, 0)
-            .Add(source_control->CreateTextViewLayoutItem(), 1, 0, 3, 1)
+            .AddTextControl(source_control, 0, 0, B_ALIGN_LEFT, 1, 3, 1)
             .Add(new BButton("Browse" B_UTF8_ELLIPSIS, nullptr), 4, 0)
-            .Add(destination_control->CreateLabelLayoutItem(), 0, 1)
-            .Add(destination_control->CreateTextViewLayoutItem(), 1, 1, 3, 1)
+            .AddTextControl(destination_control, 0, 1, B_ALIGN_LEFT, 1, 3, 1)
             .Add(new BButton("Browse" B_UTF8_ELLIPSIS, nullptr), 4, 1)
             .Add(new BSeparatorView(B_HORIZONTAL, B_PLAIN_BORDER), 0, 2, 5, 1)
             .AddGroup(B_HORIZONTAL, B_USE_DEFAULT_SPACING, 0, 3, 5, 1)
