@@ -82,6 +82,8 @@ class JMMOrganizerWindow : public BWindow {
             .Add(progress_scroll_view, 1, 1, 1, 6);
     }
 
+    virtual ~JMMOrganizerWindow() {}
+
     void MessageReceived(BMessage *message) override {
         switch (message->what) {
         case ACTIVATE_ALBUMS:
@@ -244,6 +246,8 @@ class JMMOrganizerApplication : public BApplication {
         main_window->Show();
     }
 
+    virtual ~JMMOrganizerApplication() {}
+
     void AboutRequested() override {
         BAboutWindow *about_window =
             new BAboutWindow(APPLICATION_NAME, SIGNATURE);
@@ -274,6 +278,7 @@ class JMMOrganizerApplication : public BApplication {
     void MessageReceived(BMessage *message) override {
         switch (message->what) {
         case SETTINGS_CLOSED:
+            // the window seems to delete itself on close
             settings_window = nullptr;
             break;
         case SETTINGS_REQUESTED:
