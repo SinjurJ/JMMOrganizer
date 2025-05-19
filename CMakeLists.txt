@@ -13,7 +13,7 @@ target_sources(${PROJECT_NAME}
         src/track_processing.cpp
         src/utilities.cpp
 )
-target_link_libraries(${PROJECT_NAME} be)
+target_link_libraries(${PROJECT_NAME} be tracker)
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         /boot/system/develop/headers/private/interface/
