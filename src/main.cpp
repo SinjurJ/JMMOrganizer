@@ -27,14 +27,12 @@
 #include <VolumeRoster.h>
 #include <Window.h>
 
+#define APPLICATION_NAME "JMMOrganizer"
+// TODO should it be SinjurJ instead of sinjurj?
+#define SIGNATURE "application/x-nd.sinjurj-" APPLICATION_NAME
+
 import settings;
 import track_processing;
-
-// TODO determine if efficient
-const BString APPLICATION_NAME = "JMMOrganizer";
-// TODO should it be SinjurJ instead of sinjurj?
-const BString SIGNATURE =
-    BString("application/x-nd.sinjurj-").Append(APPLICATION_NAME);
 
 class JMMOrganizerWindow : public BWindow {
   public:
