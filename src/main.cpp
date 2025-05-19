@@ -27,6 +27,7 @@
 #include <VolumeRoster.h>
 #include <Window.h>
 
+// TODO move away from preprocessor
 #define APPLICATION_NAME "JMMOrganizer"
 // TODO should it be SinjurJ instead of sinjurj?
 #define SIGNATURE "application/x-nd.sinjurj-" APPLICATION_NAME
@@ -81,6 +82,12 @@ class JMMOrganizerWindow : public BWindow {
     }
 
     virtual ~JMMOrganizerWindow() {}
+
+    // TODO temp until query is moved to application
+    BString GetSourcePath() { return source_path; }
+
+    // TODO temp until query is moved to application
+    BString GetDestinationPath() { return destination_path; }
 
     void MessageReceived(BMessage *message) override {
         switch (message->what) {
@@ -160,6 +167,11 @@ class JMMOrganizerWindow : public BWindow {
             progress_view->Insert(0, new_line, new_line.Length());
             break;
         }
+        case SETTINGS:
+            source_path = message->GetString("source", DEFAULT_SOURCE);
+            destination_path =
+                message->GetString("destination", DEFAULT_DESTINATION);
+            break;
         default:
             be_app->PostMessage(message);
         }
@@ -176,6 +188,12 @@ class JMMOrganizerWindow : public BWindow {
         BRect current_frame = Frame();
         BMessage frame_message;
         if (frame_message.AddRect("frame", current_frame) != B_OK) {
+            return true;
+        }
+        if (frame_message.AddString("source", source_path) != B_OK) {
+            return true;
+        }
+        if (frame_message.AddString("destination", destination_path) != B_OK) {
             return true;
         }
         BDirectory settings_directory(
@@ -212,7 +230,7 @@ class JMMOrganizerWindow : public BWindow {
 
     BTextView *progress_view = new BTextView("Progress");
 
-    BQuery music_query; // TODO should this be in JMMOrganizerApplication?
+    BQuery music_query; // TODO move to JMMOrganizerApplication
     BString source_path = "/boot/home/music/";
     BString destination_path = "/boot/home/music/";
 
@@ -225,6 +243,7 @@ class JMMOrganizerApplication : public BApplication {
         BFile config_file;
         BMessage frame_message;
         BRect frame(50, 50, 600, 100);
+        // TODO don't hardcode config location
         if (config_file.SetTo("/boot/home/config/settings/JMMOrganizer",
                               B_READ_ONLY) != B_OK) {
             goto show_window;
@@ -241,6 +260,13 @@ class JMMOrganizerApplication : public BApplication {
             frame.SetRightBottom(frame.RightTop() + BPoint(0, 50));
         }
         main_window = new JMMOrganizerWindow(frame, APPLICATION_NAME);
+        BMessage settings(SETTINGS);
+        settings.AddString("source",
+                           frame_message.GetString("source", DEFAULT_SOURCE));
+        settings.AddString(
+            "destination",
+            frame_message.GetString("destination", DEFAULT_DESTINATION));
+        main_window->PostMessage(&settings);
         main_window->Show();
     }
 
@@ -264,9 +290,9 @@ class JMMOrganizerApplication : public BApplication {
             "More information about the program and third-party licenses can "
             "be found at the source code repository.\n\n"
             "GitHub:\n"
-            "\thttps://github.com/SinjurJ/JMMOrganizer\n"
+            "https://github.com/SinjurJ/JMMOrganizer\n\n"
             "IPFS: PLACEHOLDER ADDRESS\n" // TODO create real address
-            "\tipns://"
+            "/ipns/" // TODO convert to URI without bad line breaks
             "k51qzi5uqu5dh6ombngx7bhdw9ivzioibwig5qdqzpabl3xmm3h61nnre2arfy"
             "/JMMOrganizer");
 
@@ -275,6 +301,9 @@ class JMMOrganizerApplication : public BApplication {
 
     void MessageReceived(BMessage *message) override {
         switch (message->what) {
+        case SETTINGS:
+            main_window->PostMessage(message);
+            break;
         case SETTINGS_CLOSED:
             // the window seems to delete itself on close
             settings_window = nullptr;
@@ -289,7 +318,11 @@ class JMMOrganizerApplication : public BApplication {
 
     void SettingsRequested() {
         if (settings_window == nullptr) {
-            settings_window = new SettingsWindow();
+            BMessage settings;
+            settings.AddString("source", main_window->GetSourcePath());
+            settings.AddString("destination",
+                               main_window->GetDestinationPath());
+            settings_window = new SettingsWindow(settings);
             settings_window->ResizeToPreferred();
             settings_window->ResizeBy(150, 0);
         }

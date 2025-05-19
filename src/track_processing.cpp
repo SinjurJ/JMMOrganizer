@@ -247,7 +247,7 @@ export status_t processTracks(void *data) {
     if (destination.InitCheck() != B_OK) {
         BMessage destination_not_found_message(LINE_FROM_PROCESS);
         destination_not_found_message.AddString(
-            "line", BString("Failed to access the destination directory\n\n"));
+            "line", BString("Failed to access the destination folder\n\n"));
         args->caller->PostMessage(&destination_not_found_message);
 
         // TODO don't repeat finished_message code

@@ -16,7 +16,7 @@ export enum process_message_code {
     SETTINGS_CLOSED = 'stcl',
     SETTINGS_REFS_DESTINATION = 'strd',
     SETTINGS_REFS_SOURCE = 'strs',
-    SETTINGS_REQUESTED = 'sett',
+    SETTINGS_REQUESTED = 'strq',
     SETTINGS_REVERT = 'strv',
     SETTINGS_MODIFIED = 'stmd',
 };

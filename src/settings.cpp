@@ -16,12 +16,12 @@ module;
 #include <TextControl.h>
 #include <Window.h>
 
-#define DEFAULT_SOURCE "/boot/home/music"
-#define DEFAULT_DESTINATION "/boot/home/music"
-
 export module settings;
 
 import utilities;
+
+export constexpr auto DEFAULT_SOURCE = "/boot/home/music";
+export constexpr auto DEFAULT_DESTINATION = "/boot/home/music";
 
 BString extractPathFromRefMessage(const BMessage &message) {
     entry_ref file_ref;
@@ -55,10 +55,6 @@ export class SettingsWindow : public BWindow {
             new BFilePanel(B_OPEN_PANEL, settings_messenger, nullptr,
                            B_DIRECTORY_NODE, false, &destination_panel_message);
 
-        source_control->SetModificationMessage(new BMessage(SETTINGS_MODIFIED));
-        destination_control->SetModificationMessage(
-            new BMessage(SETTINGS_MODIFIED));
-
         RevertSettings();
 
         BButton *browse_source = new BButton(
@@ -84,6 +80,7 @@ export class SettingsWindow : public BWindow {
         delete destination_panel;
         delete source_panel;
         delete settings_messenger;
+        delete current_settings;
     }
 
     void MessageReceived(BMessage *message) override {
@@ -91,15 +88,17 @@ export class SettingsWindow : public BWindow {
         case SETTINGS_APPLY: {
             revert_button->SetEnabled(false);
             apply_button->SetEnabled(false);
-            message->SetString("source",
-                               BString(source_control->Text()).IsEmpty()
-                                   ? DEFAULT_SOURCE
-                                   : source_control->Text());
-            message->SetString("destination",
-                               BString(destination_control->Text()).IsEmpty()
+            current_settings->SetString(
+                "source", BString(source_control->Text()).IsEmpty()
+                              ? DEFAULT_SOURCE
+                              : source_control->Text());
+            current_settings->SetString(
+                "destination", BString(destination_control->Text()).IsEmpty()
                                    ? DEFAULT_DESTINATION
                                    : destination_control->Text());
-            be_app->PostMessage(message);
+            source_panel->SetPanelDirectory(source_control->Text());
+            destination_panel->SetPanelDirectory(destination_control->Text());
+            be_app->PostMessage(current_settings);
             break;
         }
         case SETTINGS_BROWSE_DESTINATION: {
@@ -147,13 +146,24 @@ export class SettingsWindow : public BWindow {
     }
 
     void RevertSettings() {
-        revert_button->SetEnabled(false);
-        apply_button->SetEnabled(false);
-
+        // this prevents the controls from enabling the buttons
+        source_control->SetModificationMessage(nullptr);
+        destination_control->SetModificationMessage(nullptr);
+        
         source_control->SetText(
             current_settings->GetString("source", DEFAULT_SOURCE));
         destination_control->SetText(
             current_settings->GetString("destination", DEFAULT_DESTINATION));
+            
+        source_control->SetModificationMessage(new BMessage(SETTINGS_MODIFIED));
+        destination_control->SetModificationMessage(
+            new BMessage(SETTINGS_MODIFIED));
+            
+        revert_button->SetEnabled(false);
+        apply_button->SetEnabled(false);
+            
+        source_panel->SetPanelDirectory(source_control->Text());
+        destination_panel->SetPanelDirectory(destination_control->Text());
     }
 
   private:
