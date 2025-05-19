@@ -360,7 +360,8 @@ export status_t processTracks(void *data) {
                     if (generateAlbum(std::get<0>(item), entry, &destination,
                                       albums_subpath) != B_OK) {
                         std::cerr << "Failed to generate album \""
-                                  << std::get<0>(item) << "\"\n";
+                                  << std::get<0>(item) << "\" found at \""
+                                  << std::get<2>(item) << "\"\n";
                     }
                 }
             }
@@ -370,7 +371,9 @@ export status_t processTracks(void *data) {
         for (auto i = 0; i < artist_storage.CountItems(); i++) {
             const BString &artist = std::get<0>(*artist_storage.ItemAt(i));
             if (generateArtist(artist, &destination, artists_subpath) != B_OK) {
-                std::cerr << "Failed to generate artist \"" << artist << "\"\n";
+                const BString &path = std::get<2>(*artist_storage.ItemAt(i));
+                std::cerr << "Failed to generate artist \"" << artist
+                          << "\" found at \"" << path << "\"\n";
             }
         }
     }
@@ -378,7 +381,9 @@ export status_t processTracks(void *data) {
         for (auto i = 0; i < genre_storage.CountItems(); i++) {
             const BString &genre = std::get<0>(*genre_storage.ItemAt(i));
             if (generateGenre(genre, &destination, genres_subpath) != B_OK) {
-                std::cerr << "Failed to generate genre \"" << genre << "\"\n";
+                const BString &path = std::get<2>(*genre_storage.ItemAt(i));
+                std::cerr << "Failed to generate genre \"" << genre
+                          << "\" found at \"" << path << "\"\n";
             }
         }
     }
