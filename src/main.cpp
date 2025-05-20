@@ -29,8 +29,8 @@
 
 // TODO move away from preprocessor
 #define APPLICATION_NAME "JMMOrganizer"
-// TODO should it be SinjurJ instead of sinjurj?
-#define SIGNATURE "application/x-nd.sinjurj-" APPLICATION_NAME
+// TODO is this signature correct?
+#define SIGNATURE "application/x-vnd." APPLICATION_NAME
 
 import settings;
 import track_processing;
